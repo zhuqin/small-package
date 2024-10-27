@@ -27,6 +27,7 @@ git clone --depth 1 https://github.com/kiddin9/luci-app-xlnetacc
 git clone --depth 1 https://github.com/kiddin9/luci-app-wizard
 git clone --depth 1 -b 18.06 https://github.com/kiddin9/luci-theme-edge
 git clone --depth 1 https://github.com/derisamedia/luci-theme-alpha
+git clone --depth 1 https://github.com/animegasan/luci-app-alpha-config
 git clone --depth 1 https://github.com/yichya/luci-app-xray
 git clone --depth 1 https://github.com/Lienol/openwrt-package
 git clone --depth 1 https://github.com/ysc3839/openwrt-minieap
@@ -136,7 +137,8 @@ git clone --depth 1 https://github.com/immortalwrt/luci && mv -n luci/applicatio
 git clone --depth 1 https://github.com/mingxiaoyu/luci-app-cloudflarespeedtest cloudflarespeedtest && mv -n cloudflarespeedtest/applications/* ./;rm -rf cloudflarespeedtest
 git clone --depth 1 https://github.com/doushang/luci-app-shortcutmenu luci-shortcutmenu && mv -n luci-shortcutmenu/luci-app-shortcutmenu ./ ; rm -rf luci-shortcutmenu
 git clone --depth 1 https://github.com/sbilly/netmaker-openwrt && mv -n netmaker-openwrt/netmaker ./; rm -rf netmaker-openwrt
-git clone --depth 1 https://github.com/coolsnowwolf/packages && mv -n packages/multimedia/UnblockNeteaseMusic-Go packages/net/msd_lite ./ ; rm -rf packages
+#git clone --depth 1 https://github.com/coolsnowwolf/packages && mv -n packages/multimedia/UnblockNeteaseMusic-Go packages/net/msd_lite ./ ; rm -rf packages
+#git clone --depth 1 https://github.com/coolsnowwolf/luci && mv -n luci/applications/luci-app-unblockmusic luci/libs/luci-lib-fs./ ; rm -rf luci
 git clone --depth 1 https://github.com/gSpotx2f/luci-app-internet-detector
 git clone --depth 1 https://github.com/vinewx/NanoHatOLED; mv NanoHatOLED/nanohatoled ./;rm -rf NanoHatOLED
 git clone --depth 1 https://github.com/zerolabnet/luci-app-torbp
@@ -146,9 +148,13 @@ git clone --depth 1 https://github.com/sirpdboy/luci-theme-kucat -b js --depth 1
 git clone --depth 1 https://github.com/blueberry-pie-11/luci-app-natmap
 git clone --depth 1 https://github.com/QiuSimons/luci-app-daed-next daed1 && mvdir daed1
 git clone --depth 1 https://github.com/morytyann/OpenWrt-mihomo OpenWrt-mihomo && mv -n OpenWrt-mihomo/*mihomo ./ ; rm -rf OpenWrt-mihomo
+git clone --depth 1 https://github.com/muink/openwrt-fchomo openwrt-fchomo && mv -n openwrt-fchomo/*homo ./ ; rm -rf openwrt-fchomo
+git clone --depth 1 https://github.com/lucikap/luci-app-brukamen && mv -n luci-app-brukamen/{luci*,mentohust,iii/*} ./;rm -rf luci-app-brukamen luci-app-autoshell_*.ipk
+git clone --depth 1 -b nekobox https://github.com/Thaolga/openwrt-nekobox && mv openwrt-nekobox/luci-app-nekobox ./;rm -rf openwrt-nekobox
 git clone --depth 1 https://github.com/Carseason/openwrt-packages Carseason && mv -n Carseason/*/* ./;mv services/routergo ./;rm -rf Carseason
 git clone --depth 1 https://github.com/Carseason/openwrt-themedog && mv -n openwrt-themedog/luci/* ./;rm -rf openwrt-themedog
 git clone --depth 1 https://github.com/Carseason/openwrt-app-actions Carseason && mv -n Carseason/applications/* ./;rm -rf Carseason
+git clone --depth 1 https://github.com/Akimio521/luci-app-gecoosac
 
 svn export https://github.com/coolsnowwolf/luci/trunk/libs/luci-lib-ipkg
 svn export https://github.com/x-wrt/packages/trunk/net/nft-qos
@@ -165,9 +171,13 @@ svn export https://github.com/kenzok8/jell/trunk/vsftpd-alt
 svn export https://github.com/kenzok8/jell/trunk/luci-app-bridge
 
 git_sparse_clone master "https://github.com/coolsnowwolf/packages" "leanpack" net/miniupnpd net/mwan3 \
-net/amule net/baidupcs-web multimedia/gmediarender net/go-aliyundrive-webdav \
-net/verysync net/dnsforwarder net/nps net/tcpping
+multimedia/gmediarender multimedia/UnblockNeteaseMusic-Go \
+net/go-aliyundrive-webdav net/verysync net/dnsforwarder net/msd_lite \
+net/nps net/tcpping net/amule net/baidupcs-web 
 mv -f miniupnpd miniupnpd-iptables
+
+git_sparse_clone master "https://github.com/coolsnowwolf/luci" "leanluci" applications/luci-app-unblockmusic \
+libs/luci-lib-fs
 
 git_sparse_clone openwrt-23.05 "https://github.com/openwrt/packages" "22packages" \
 utils/cgroupfs-mount utils/coremark utils/watchcat utils/dockerd net/nginx net/uwsgi net/ddns-scripts \
