@@ -709,6 +709,8 @@ function showUpdateAlert() {
     </div>
     <div class="text-center">
         <h1 style="margin-top: 40px; margin-bottom: 20px;">Mihomo 文件管理</h1>
+       <div class="card mb-4">
+    <div class="card-body">
     <div class="container">
     <h5>代理文件管理</h5>
     <div class="table-responsive">
