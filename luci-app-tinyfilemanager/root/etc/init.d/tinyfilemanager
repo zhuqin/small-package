@@ -28,6 +28,7 @@ fi
 
 validate_section() {
 	uci_load_validate $CONFIG_NAME $TYPEDSECTION "$1" "$2" \
+		'defconf:string' \
 		'use_auth:bool:0' \
 		'auth_users:list(string)' \
 		'readonly_users:list(string)' \
@@ -69,6 +70,7 @@ apply_config() {
 
 	local exclude_items=$(echo "$exclude_items"|sed -E "s/('[^']+'|[^' ]+)/'\1'/g; s|''|'|g; s|' '|',\\\n    '|g; s|^|   |")
 
+sed -Ei "s|^\\\$CONFIG\s*=.*|\$CONFIG = '$defconf'\;|" "$_conf"
 [ "$use_auth" -eq "1" ] && sed -Ei "s|(^\\\$use_auth =)(.+)|\1 true;|" "$_conf" || sed -Ei "s|(^\\\$use_auth =)(.+)|\1 false;|" "$_conf"
 [ "$global_readonly" -eq "1" ] && sed -Ei "s|(^\\\$global_readonly =)(.+)|\1 true;|" "$_conf" || sed -Ei "s|(^\\\$global_readonly =)(.+)|\1 false;|" "$_conf"
 sed -Ei "/^\\\$auth_users /,/\);/{/^ /d}" "$_conf" && sed -Ei "/^\\\$auth_users /a\ $auth_users" "$_conf"
@@ -95,8 +97,16 @@ start_service() {
 	mkdir /var/etc 2>/dev/null
 	touch "$CONF"
 	ln -s "$CONF" "$WORKDIR/config.php" 2>/dev/null
-	init_config "$CONF"
 
+	# CONFIG save
+	procd_open_instance "config-save"
+	procd_set_param command "/usr/libexec/tinyfilemanager-config-save"
+	procd_set_param env CONF=$CONF
+	procd_set_param file $CONF
+	procd_set_param respawn
+	procd_close_instance
+
+	init_config "$CONF"
 	config_load "$CONFIG_NAME"
 	config_foreach validate_section "$TYPEDSECTION" apply_config
 }
@@ -114,8 +124,4 @@ check() {
 		| sed -E 's|",||g; s|^.+"([^"]+)|\1|g' \
 	> "$VARDIR/releaseslist"
 	[ "$?" != 0 ] || sed -i 'i\master' "$VARDIR/releaseslist"
-}
-
-restart() {
-	start
 }
