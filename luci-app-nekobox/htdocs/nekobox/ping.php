@@ -1118,31 +1118,43 @@ window.addEventListener('load', function() {
     let songs = [];  
     let currentSongIndex = 0;  
     let isPlaying = false;  
-    let isReportingTime = false;  
+    let isReportingTime = false; 
 
     function loadDefaultPlaylist() {
         fetch('https://raw.githubusercontent.com/Thaolga/Rules/main/Clash/songs.txt')
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('加载歌单失败');
+                    throw new Error('加载播放列表失败');
                 }
                 return response.text();
             })
             .then(data => {
                 songs = data.split('\n').filter(url => url.trim() !== ''); 
                 if (songs.length === 0) {
-                    throw new Error('没有有效的歌曲');
+                    throw new Error('播放列表中没有有效的歌曲');
                 }
-                console.log('歌单已加载:', songs);
+                console.log('播放列表已加载:', songs);
+                restorePlayerState(); 
             })
             .catch(error => {
-                console.error('加载歌单出错:', error.message);
+                console.error('加载播放列表时出错:', error.message);
             });
     }
 
     function loadSong(index) {
         if (index >= 0 && index < songs.length) {
             audioPlayer.src = songs[index];  
+            audioPlayer.addEventListener('loadedmetadata', () => {
+                const savedState = JSON.parse(localStorage.getItem('playerState'));
+                if (savedState && savedState.currentSongIndex === index) {
+                    audioPlayer.currentTime = savedState.currentTime || 0; 
+                    if (savedState.isPlaying) {
+                        audioPlayer.play().catch(error => {
+                            console.error('恢复播放失败:', error);
+                        });
+                    }
+                }
+            }, { once: true }); 
         }
     }
 
@@ -1151,6 +1163,7 @@ window.addEventListener('load', function() {
             loadSong(currentSongIndex);
             audioPlayer.play().then(() => {
                 isPlaying = true;
+                savePlayerState(); 
                 console.log('开始播放');
             }).catch(error => {
                 console.log('播放失败:', error);
@@ -1158,23 +1171,34 @@ window.addEventListener('load', function() {
         } else {
             audioPlayer.pause();
             isPlaying = false;
-            console.log('暂停播放');
+            savePlayerState(); 
+            console.log('播放已暂停');
         }
     });
 
     document.addEventListener('keydown', function(event) {
-        if (event.key === 'ArrowLeft') {
-            currentSongIndex = (currentSongIndex - 1 + songs.length) % songs.length;
+        if (event.key === 'ArrowUp') {
+            currentSongIndex = (currentSongIndex - 1 + songs.length) % songs.length; 
             loadSong(currentSongIndex);
+            savePlayerState(); 
             if (isPlaying) {
                 audioPlayer.play();  
             }
+        } else if (event.key === 'ArrowDown') {
+            currentSongIndex = (currentSongIndex + 1) % songs.length; 
+            loadSong(currentSongIndex);
+            savePlayerState(); 
+            if (isPlaying) {
+                audioPlayer.play();  
+            }
+        } else if (event.key === 'ArrowLeft') {
+            audioPlayer.currentTime = Math.max(audioPlayer.currentTime - 10, 0); 
+            console.log('快退 10 秒');
+            savePlayerState();
         } else if (event.key === 'ArrowRight') {
-            currentSongIndex = (currentSongIndex + 1) % songs.length;
-            loadSong(currentSongIndex);
-            if (isPlaying) {
-                audioPlayer.play();  
-            }
+            audioPlayer.currentTime = Math.min(audioPlayer.currentTime + 10, audioPlayer.duration || Infinity); 
+            console.log('快进 10 秒');
+            savePlayerState();
         }
     });
 
@@ -1202,8 +1226,26 @@ window.addEventListener('load', function() {
     audioPlayer.addEventListener('ended', function() {
         currentSongIndex = (currentSongIndex + 1) % songs.length;  
         loadSong(currentSongIndex);  
+        savePlayerState(); 
         audioPlayer.play(); 
     });
+
+    function savePlayerState() {
+        const state = {
+            currentSongIndex,       
+            currentTime: audioPlayer.currentTime,
+            isPlaying         
+        };
+        localStorage.setItem('playerState', JSON.stringify(state));
+    }
+
+    function restorePlayerState() {
+        const state = JSON.parse(localStorage.getItem('playerState'));
+        if (state) {
+            currentSongIndex = state.currentSongIndex || 0;
+            loadSong(currentSongIndex);
+        }
+    }
 
     loadDefaultPlaylist();
     startHourlyAlert();
