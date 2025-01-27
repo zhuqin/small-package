@@ -121,8 +121,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         color: white !important; 
     }
 
-    label[for="newPath"], label[for="permissions"], .form-text {
-        color: white !important;
+    .close {
+        color: white !important; 
+    }
+
+    .close:hover,
+    .close:focus {
+        color: white !important; 
+        text-decoration: none; 
     }
 
     .alert-info {
