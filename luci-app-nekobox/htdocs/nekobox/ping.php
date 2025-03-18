@@ -28,6 +28,52 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  interact('.modal-dialog.draggable').draggable({
+    allowFrom: '.modal-header',
+    modifiers: [
+      interact.modifiers.restrictRect({
+        restriction: 'parent',
+        endOnly: true
+      })
+    ],
+    listeners: {
+      start: function(event) {
+        event.target.style.transition = 'none';
+        event.target.classList.add('dragging');
+      },
+      move: function(event) {
+        const target = event.target;
+        const x = (parseFloat(target.style.left) || 0) + event.dx;
+        const y = (parseFloat(target.style.top) || 0) + event.dy;
+        
+        target.style.left = `${x}px`;
+        target.style.top = `${y}px`;
+      },
+      end: function(event) {
+        event.target.style.transition = '';
+        event.target.classList.remove('dragging');
+      }
+    }
+  });
+
+  document.querySelectorAll('.modal').forEach(modal => {
+    const dialog = modal.querySelector('.modal-dialog');
+    dialog.classList.add('draggable');
+
+    const originalWidth = dialog.style.width;
+    const originalMaxWidth = dialog.style.maxWidth;
+    
+    modal.addEventListener('show.bs.modal', () => {
+      dialog.style.width = originalWidth;
+      dialog.style.maxWidth = originalMaxWidth;
+    });
+  });
+});
+</script>
+
 <script>
 const langData = <?php echo json_encode($langData); ?>;  
 const currentLang = "<?php echo $currentLang; ?>"; 
@@ -602,23 +648,43 @@ $lang = $_GET['lang'] ?? 'en';
         z-index: 9999;
     }
 
-    .fullscreen-btn,
-    .exit-fullscreen-btn {
+    .fullscreen-btn, .exit-fullscreen-btn {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 0;
+        font-size: 18px;
+        cursor: pointer;
         position: absolute;
         top: 10px;
         right: 10px;
-        background-color: #fff;
-        border: 1px solid #ccc;
-        padding: 5px;
-        cursor: pointer;
-        border-radius: 50%;
-        font-size: 20px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        z-index: 10000;
+        z-index: 1000;
+        display: flex;
+        justify-content: center;  
+        align-items: center;
+        height: 40px;  
+        width: 40px;   
     }
 
     .exit-fullscreen-btn {
         display: none;
+        background-color: #dc3545;
+    }
+
+    .fullscreen-btn:hover {
+        background-color: #0056b3;
+    }
+
+    .exit-fullscreen-btn:hover {
+        background-color: #c82333;
+    }
+
+    .fullscreen-btn i, .exit-fullscreen-btn i {
+        font-size: 24px;
+        line-height: 1; 
+        margin: 0; 
+        padding: 0; 
     }
 
     #d-ip {
@@ -932,6 +998,8 @@ $lang = $_GET['lang'] ?? 'en';
 
 </style>
 </style>
+<script src="./assets/bootstrap/bootstrap.bundle.min.js"></script>
+<script src="./assets/bootstrap/interact.min.js"></script>
 <script src="./assets/bootstrap/Sortable.min.js"></script>
 <link href="./assets/bootstrap/video-js.css" rel="stylesheet" />
 <script src="./assets/bootstrap/video.js"></script>
@@ -1470,12 +1538,12 @@ let IP = {
 
                 const fullscreenButton = document.createElement('button');
                 fullscreenButton.classList.add('fullscreen-btn');
-                fullscreenButton.innerHTML = '🗖';  
+                fullscreenButton.innerHTML = '<i class="fas fa-expand"></i>';  
                 document.getElementById('leafletMap').appendChild(fullscreenButton);
 
                 const exitFullscreenButton = document.createElement('button');
                 exitFullscreenButton.classList.add('exit-fullscreen-btn');
-                exitFullscreenButton.innerHTML = '❎';  
+                exitFullscreenButton.innerHTML = '<i class="fas fa-compress"></i>';  
                 document.getElementById('leafletMap').appendChild(exitFullscreenButton);
 
                 fullscreenButton.onclick = function() {
@@ -4796,7 +4864,7 @@ toggleModalButton.onclick = function() {
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="colorModalLabel" data-translate="chooseThemeColor">Choose Theme Color</h5>
-        <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
       </div>
       <div class="modal-body">
         <form method="POST" action="theme.php" id="themeForm" enctype="multipart/form-data">
@@ -5665,7 +5733,7 @@ function showPlaylistContainer() {
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="fileUploadModalLabel" data-translate="rename_file">Rename File</h5>
-                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
