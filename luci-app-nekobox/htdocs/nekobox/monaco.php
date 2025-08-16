@@ -1198,6 +1198,8 @@ table.table tbody tr td.file-icon {
                 <option value="my-custom-theme">My Custom Theme</option>
             </select>
             <button type="button" class="btn btn-sm btn-primary" onclick="openSearch()" data-translate="search"></button>
+            <button type="button" class="btn btn-sm btn-rose-gold" onclick="toggleComment()" data-translate="toggleComment">Toggle Comment</button>
+            <button type="button" class="btn btn-sm btn-teal" onclick="openDiffEditorPrompt()" data-translate="compare">Compare</button>
             <button type="button" class="btn btn-sm btn-danger" id="toggleFullscreenBtn" onclick="toggleFullscreen()" data-translate="toggleFullscreen">Fullscreen</button>
             <button type="button" class="btn btn-sm btn-info" onclick="formatContent()" data-translate="format">Format</button>
             <button type="button" class="btn btn-sm btn-fuchsia" id="jsonValidationBtn" onclick="validateJsonSyntax()" style="display:none;" data-translate="validateJson">Validate JSON</button>
@@ -1271,6 +1273,7 @@ table.table tbody tr td.file-icon {
 let selectedFiles = [];
 let selectedFilesSize = 0;
 let monacoEditorInstance = null;
+let diffEditorInstance = null; 
 let currentEncoding = 'UTF-8';
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1709,11 +1712,11 @@ function saveEdit() {
 }
 
 const monacoScript = document.createElement('script');
-monacoScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs/loader.min.js';
+monacoScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js';
 document.head.appendChild(monacoScript);
 
 monacoScript.onload = function() {
-    require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs' } });
+    require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs' } });
 };
 
 function openMonacoEditor() {
@@ -1828,7 +1831,13 @@ function openMonacoEditor() {
             theme: savedTheme,
             fontSize: parseInt(savedFontSize.replace('px', '')),
             wordWrap: 'on',
-            automaticLayout: true
+            automaticLayout: true,
+            folding: true,
+            foldingStrategy: 'indentation',
+            multiCursorModifier: 'alt',
+            minimap: {
+                enabled: true
+            }
         });
 
         const ext = path.split('.').pop().toLowerCase();
@@ -1846,6 +1855,8 @@ function openMonacoEditor() {
         
         detectContentFormat();
         
+        registerCompletionProviders();
+        
         setTimeout(() => {
             monacoEditorInstance.focus();
         }, 100);
@@ -1856,6 +1867,58 @@ function openMonacoEditor() {
             closeMonacoEditor();
         }
     };
+}
+
+function registerCompletionProviders() {
+    monaco.languages.registerCompletionItemProvider('php', {
+        provideCompletionItems: function(model, position) {
+            return {
+                suggestions: [
+                    {
+                        label: 'echo',
+                        kind: monaco.languages.CompletionItemKind.Keyword,
+                        insertText: 'echo "${1}";',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
+                    },
+                    {
+                        label: 'function',
+                        kind: monaco.languages.CompletionItemKind.Keyword,
+                        insertText: 'function ${1:name}() {\n\t${2}\n}',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
+                    },
+                    {
+                        label: 'foreach',
+                        kind: monaco.languages.CompletionItemKind.Snippet,
+                        insertText: 'foreach ($${1:array} as $${2:key} => $${3:value}) {\n\t${4}\n}',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Inserts a foreach loop in PHP'
+                    }
+                ]
+            };
+        }
+    });
+
+    monaco.languages.registerCompletionItemProvider('javascript', {
+        provideCompletionItems: function(model, position) {
+            return {
+                suggestions: [
+                    {
+                        label: 'console.log',
+                        kind: monaco.languages.CompletionItemKind.Function,
+                        insertText: 'console.log(${1});',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
+                    },
+                    {
+                        label: 'for',
+                        kind: monaco.languages.CompletionItemKind.Snippet,
+                        insertText: 'for (let ${1:i} = 0; ${1:i} < ${2:length}; ${1:i}++) {\n\t${3}\n}',
+                        insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                        documentation: 'Inserts a for loop in JavaScript'
+                    }
+                ]
+            };
+        }
+    });
 }
 
 function setEditorMode(ext) {
@@ -1909,6 +1972,14 @@ function closeMonacoEditor() {
         monacoEditorInstance.dispose();
         monacoEditorInstance = null;
     }
+    if (diffEditorInstance) {
+        diffEditorInstance.dispose();
+        diffEditorInstance = null;
+        const diffContainer = document.getElementById('diffEditorContainer');
+        if (diffContainer) {
+            diffContainer.remove();
+        }
+    }
     document.getElementById('monacoEditor').style.display = 'none';
     const container = document.getElementById('monacoEditorContainer');
     if (container) {
@@ -1922,6 +1993,76 @@ function saveFullScreenContent() {
         closeMonacoEditor();
         document.getElementById('editForm').submit();
         showLogMessage(translations['save_success'] || 'Saved successfully');
+    }
+}
+
+function toggleComment() {
+    if (monacoEditorInstance) {
+        monacoEditorInstance.getAction('editor.action.commentLine').run();
+    }
+}
+
+function openDiffEditorPrompt() {
+    if (!monacoEditorInstance) return;
+    const originalContent = monacoEditorInstance.getValue();
+    const modifiedContent = prompt(translations['enterModifiedContent'] || 'Enter modified content for comparison:', originalContent);
+    if (modifiedContent !== null) {
+        openDiffEditor(originalContent, modifiedContent);
+    }
+}
+
+function openDiffEditor(originalContent, modifiedContent) {
+    const editorContainer = document.getElementById('monacoEditorContainer');
+    if (editorContainer) {
+        editorContainer.style.display = 'none';
+    }
+
+    const diffContainer = document.createElement('div');
+    diffContainer.id = 'diffEditorContainer';
+    diffContainer.style.width = '100%';
+    diffContainer.style.height = 'calc(100% - 40px)';
+    document.getElementById('monacoEditor').appendChild(diffContainer);
+
+    diffEditorInstance = monaco.editor.createDiffEditor(diffContainer, {
+        theme: localStorage.getItem('editorTheme') || 'vs-dark',
+        automaticLayout: true
+    });
+
+    diffEditorInstance.setModel({
+        original: monaco.editor.createModel(originalContent, 'text'),
+        modified: monaco.editor.createModel(modifiedContent, 'text')
+    });
+
+    const existingCloseDiffBtn = document.querySelector('#leftControls button[data-role="closeDiff"]');
+    if (existingCloseDiffBtn) {
+        existingCloseDiffBtn.remove();
+    }
+
+    const closeDiffBtn = document.createElement('button');
+    closeDiffBtn.type = 'button';
+    closeDiffBtn.className = 'btn btn-sm btn-secondary';
+    closeDiffBtn.textContent = translations['closeDiff'] || 'Close Diff View';
+    closeDiffBtn.setAttribute('data-role', 'closeDiff');
+    closeDiffBtn.onclick = closeDiffEditor;
+    document.getElementById('leftControls').appendChild(closeDiffBtn);
+}
+
+function closeDiffEditor() {
+    if (diffEditorInstance) {
+        diffEditorInstance.dispose();
+        diffEditorInstance = null;
+        const diffContainer = document.getElementById('diffEditorContainer');
+        if (diffContainer) {
+            diffContainer.remove();
+        }
+        const closeDiffBtn = document.querySelector('#leftControls button[data-role="closeDiff"]');
+        if (closeDiffBtn) {
+            closeDiffBtn.remove();
+        }
+        const editorContainer = document.getElementById('monacoEditorContainer');
+        if (editorContainer) {
+            editorContainer.style.display = 'block';
+        }
     }
 }
 
@@ -2117,63 +2258,73 @@ function localizeSearchWidget() {
 
     const buttons = document.querySelectorAll('.find-actions .button, .monaco-custom-toggle, .replace-actions .button');
     buttons.forEach(button => {
-        const title = button.getAttribute('title');
-        const ariaLabel = button.getAttribute('aria-label');
+        let title = button.getAttribute('title');
+        let ariaLabel = button.getAttribute('aria-label');
+        let textToCheck = title || ariaLabel || '';
 
-        if (title) {
-            if (title.includes('Previous Match')) {
-                button.setAttribute('title', translations['search.previousMatch'] || 'Previous Match (Shift+Enter)');
-                button.setAttribute('aria-label', translations['search.previousMatch'] || 'Previous Match (Shift+Enter)');
-            } else if (title.includes('Next Match')) {
-                button.setAttribute('title', translations['search.nextMatch'] || 'Next Match (Enter)');
-                button.setAttribute('aria-label', translations['search.nextMatch'] || 'Next Match (Enter)');
-            } else if (title.includes('Match Case')) {
-                button.setAttribute('title', translations['search.matchCase'] || 'Match Case (Alt+C)');
-                button.setAttribute('aria-label', translations['search.matchCase'] || 'Match Case (Alt+C)');
-            } else if (title.includes('Match Whole Word')) {
-                button.setAttribute('title', translations['search.matchWholeWord'] || 'Match Whole Word (Alt+W)');
-                button.setAttribute('aria-label', translations['search.matchWholeWord'] || 'Match Whole Word (Alt+W)');
-            } else if (title.includes('Use Regular Expression')) {
-                button.setAttribute('title', translations['search.useRegex'] || 'Use Regular Expression (Alt+R)');
-                button.setAttribute('aria-label', translations['search.useRegex'] || 'Use Regular Expression (Alt+R)');
-            } else if (title.includes('Find in Selection')) {
-                button.setAttribute('title', translations['search.findInSelection'] || 'Find in Selection (Alt+L)');
-                button.setAttribute('aria-label', translations['search.findInSelection'] || 'Find in Selection (Alt+L)');
-            } else if (title.includes('Close')) {
-                button.setAttribute('title', translations['search.close'] || 'Close (Escape)');
-                button.setAttribute('aria-label', translations['search.close'] || 'Close (Escape)');
-            } else if (title.includes('Toggle Replace')) {
-                button.setAttribute('title', translations['search.toggleReplace'] || 'Toggle Replace');
-                button.setAttribute('aria-label', translations['search.toggleReplace'] || 'Toggle Replace');
-            } else if (title.includes('Preserve Case')) {
-                button.setAttribute('title', translations['search.preserveCase'] || 'Preserve Case (Alt+P)');
-                button.setAttribute('aria-label', translations['search.preserveCase'] || 'Preserve Case (Alt+P)');
-            } else if (title.includes('Replace All')) {
-                button.setAttribute('title', translations['search.replaceAll'] || 'Replace All (Ctrl+Alt+Enter)');
-                button.setAttribute('aria-label', translations['search.replaceAll'] || 'Replace All (Ctrl+Alt+Enter)');
-            } else if (title.includes('Replace')) {
-                button.setAttribute('title', translations['search.replace'] || 'Replace (Enter)');
-                button.setAttribute('aria-label', translations['search.replace'] || 'Replace (Enter)');
-            }
+        let clean = textToCheck.replace(/\(.*?\)/g, '').trim();
+
+        if (clean.includes('Previous Match')) {
+            let v = translations['search.previousMatch'] || 'Previous Match (Shift+Enter)';
+            button.setAttribute('title', v);
+            button.setAttribute('aria-label', v);
+        } else if (clean.includes('Next Match')) {
+            let v = translations['search.nextMatch'] || 'Next Match (Enter)';
+            button.setAttribute('title', v);
+            button.setAttribute('aria-label', v);
+        } else if (clean.includes('Match Case')) {
+            let v = translations['search.matchCase'] || 'Match Case (Alt+C)';
+            button.setAttribute('title', v);
+            button.setAttribute('aria-label', v);
+        } else if (clean.includes('Match Whole Word')) {
+            let v = translations['search.matchWholeWord'] || 'Match Whole Word (Alt+W)';
+            button.setAttribute('title', v);
+            button.setAttribute('aria-label', v);
+        } else if (clean.includes('Use Regular Expression')) {
+            let v = translations['search.useRegex'] || 'Use Regular Expression (Alt+R)';
+            button.setAttribute('title', v);
+            button.setAttribute('aria-label', v);
+        } else if (clean.includes('Find in Selection')) {
+            let v = translations['search.findInSelection'] || 'Find in Selection (Alt+L)';
+            button.setAttribute('title', v);
+            button.setAttribute('aria-label', v);
+        } else if (clean.includes('Close')) {
+            let v = translations['search.close'] || 'Close (Escape)';
+            button.setAttribute('title', v);
+            button.setAttribute('aria-label', v);
+        } else if (clean.includes('Toggle Replace')) {
+            let v = translations['search.toggleReplace'] || 'Toggle Replace';
+            button.setAttribute('title', v);
+            button.setAttribute('aria-label', v);
+        } else if (clean.includes('Preserve Case')) {
+            let v = translations['search.preserveCase'] || 'Preserve Case (Alt+P)';
+            button.setAttribute('title', v);
+            button.setAttribute('aria-label', v);
+        } else if (clean.includes('Replace All')) {
+            let v = translations['search.replaceAll'] || 'Replace All (Ctrl+Alt+Enter)';
+            button.setAttribute('title', v);
+            button.setAttribute('aria-label', v);
+        } else if (clean.includes('Replace')) {
+            let v = translations['search.replace'] || 'Replace (Enter)';
+            button.setAttribute('title', v);
+            button.setAttribute('aria-label', v);
         }
     });
 
     const findInput = document.querySelector('.find-part .monaco-inputbox textarea');
     if (findInput) {
-        if (findInput.getAttribute('placeholder') === 'Find') {
-            findInput.setAttribute('placeholder', translations['search.find'] || 'Find');
-            findInput.setAttribute('title', translations['search.find'] || 'Find');
-            findInput.setAttribute('aria-label', translations['search.find'] || 'Find');
-        }
+        const v = translations['search.find'] || 'Find';
+        findInput.setAttribute('placeholder', v);
+        findInput.setAttribute('title', v);
+        findInput.setAttribute('aria-label', v);
     }
 
     const replaceInput = document.querySelector('.replace-part .monaco-inputbox textarea');
     if (replaceInput) {
-        if (replaceInput.getAttribute('placeholder') === 'Replace') {
-            replaceInput.setAttribute('placeholder', translations['search.replace'] || 'Replace');
-            replaceInput.setAttribute('title', translations['search.replace'] || 'Replace');
-            replaceInput.setAttribute('aria-label', translations['search.replace'] || 'Replace');
-        }
+        const v = translations['search.replace'] || 'Replace';
+        replaceInput.setAttribute('placeholder', v);
+        replaceInput.setAttribute('title', v);
+        replaceInput.setAttribute('aria-label', v);
     }
 }
 
